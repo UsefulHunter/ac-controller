@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ar-condicionado</title>
+<style>
+  :root {
+    --bg: #e9f0f1;
+    --surface: #f7fafa;
+    --ink: #12262b;
+    --muted: #5b727a;
+    --line: #c9d8db;
+    --accent: #137a8f;
+    --accent-ink: #ffffff;
+    --heat: #c4561f;
+    --ok: #2c8a52;
+    --bad: #b3372f;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0e191c;
+      --surface: #16262a;
+      --ink: #e4eff1;
+      --muted: #8fa8af;
+      --line: #284046;
+      --accent: #4cc3d9;
+      --accent-ink: #072228;
+      --heat: #f08a54;
+      --ok: #5cc98a;
+      --bad: #ee7a70;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: grid;
+    place-items: start center;
+    padding: 24px 16px;
+  }
+  main { width: 100%; max-width: 440px; display: grid; gap: 20px; }
+
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  h1 { font-size: 1rem; font-weight: 600; margin: 0; }
+  .conn { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: .875rem; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+  .conn[data-state="online"] .dot { background: var(--ok); }
+  .conn[data-state="offline"] .dot { background: var(--bad); }
+
+  .readout { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; display: grid; gap: 16px; }
+  .setpoint { display: grid; grid-template-columns: 56px 1fr 56px; align-items: center; gap: 8px; }
+  .temp { text-align: center; font-variant-numeric: tabular-nums; line-height: 1; }
+  .temp .num { font-size: 5rem; font-weight: 300; letter-spacing: -0.03em; }
+  .temp .unit { font-size: 1.5rem; color: var(--muted); margin-left: 2px; vertical-align: top; position: relative; top: .6rem; }
+  .temp[data-mode="heat"] .num { color: var(--heat); }
+  .temp[data-mode="cool"] .num { color: var(--accent); }
+  .temp[data-off="true"] .num { color: var(--muted); }
+  .step { height: 56px; border-radius: 50%; font-size: 1.5rem; }
+  .room { text-align: center; color: var(--muted); font-size: .9375rem; }
+
+  button { font: inherit; color: inherit; cursor: pointer; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 10px 12px; }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button:focus-visible, select:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  button:disabled, select:disabled { opacity: .45; cursor: not-allowed; }
+  button[aria-pressed="true"], button[aria-checked="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+
+  .power { width: 100%; font-weight: 600; padding: 14px; }
+
+  fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 8px; }
+  legend { padding: 0; margin-bottom: 8px; font-size: .875rem; color: var(--muted); }
+  .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
+  .seg button { padding: 10px 4px; font-size: .875rem; }
+  .toggles { display: flex; flex-wrap: wrap; gap: 8px; }
+  select { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; width: 100%; }
+
+  .msg { min-height: 1.4em; font-size: .875rem; color: var(--bad); }
+  @media (prefers-reduced-motion: no-preference) {
+    button { transition: background-color .12s, border-color .12s; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Ar-condicionado</h1>
+    <div class="conn" id="conn" data-state="connecting"><span class="dot"></span><span id="connText">Conectando…</span></div>
+  </header>
+
+  <section class="readout" aria-label="Temperatura">
+    <div class="setpoint">
+      <button class="step" id="down" aria-label="Diminuir temperatura">−</button>
+      <div class="temp" id="temp"><span class="num" id="target">--</span><span class="unit">°C</span></div>
+      <button class="step" id="up" aria-label="Aumentar temperatura">+</button>
+    </div>
+    <div class="room" id="room">Temperatura do ambiente indisponível</div>
+    <button class="power" id="power" aria-pressed="false">Ligar</button>
+  </section>
+
+  <fieldset>
+    <legend>Modo</legend>
+    <div class="seg" id="mode"></div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Ventilador</legend>
+    <div class="seg" id="fanSpeed"></div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Direção do ar (vertical)</legend>
+    <select id="swingVert" aria-label="Direção vertical do ar"></select>
+  </fieldset>
+
+  <fieldset>
+    <legend>Extras</legend>
+    <div class="toggles" id="toggles"></div>
+  </fieldset>
+
+  <div class="msg" id="msg" role="status" aria-live="polite"></div>
+</main>
+
+<script>
+const LABELS = {
+  mode: { auto: 'Auto', cool: 'Frio', dry: 'Seco', fan_only: 'Ventilar', heat: 'Calor' },
+  fanSpeed: { auto: 'Auto', low: 'Baixo', mediumLow: 'M. baixo', medium: 'Médio', mediumHigh: 'M. alto', high: 'Alto' },
+  swingVert: {
+    default: 'Padrão', full: 'Oscilar tudo', fixedTop: 'Fixo: topo', fixedMidTop: 'Fixo: meio-alto', fixedMid: 'Fixo: meio',
+    fixedMidBottom: 'Fixo: meio-baixo', fixedBottom: 'Fixo: baixo', swingBottom: 'Oscilar: baixo',
+    swingMidBottom: 'Oscilar: meio-baixo', swingMid: 'Oscilar: meio', swingMidTop: 'Oscilar: meio-alto', swingTop: 'Oscilar: topo'
+  },
+};
+const TOGGLES = [
+  { key: 'turbo', label: 'Turbo' },
+  { key: 'sleep', label: 'Modo sono' },
+  { key: 'powerSave', label: 'Economia' },
+  { key: 'lights', label: 'Luz do display' },
+  { key: 'health', label: 'Saúde' },
+  { key: 'blow', label: 'X-Fan' },
+];
+const $ = (id) => document.getElementById(id);
+let state = null;
+let options = null;
+let pendingTemp = null;
+let tempTimer = null;
+
+function showError(text) { $('msg').textContent = text || ''; }
+
+async function send(payload) {
+  showError('');
+  try {
+    const res = await fetch('/api/set', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const body = await res.json();
+    if (!body.ok) showError(body.error || 'Não foi possível enviar o comando.');
+  } catch {
+    showError('Sem conexão com o servidor local.');
+  }
+}
+
+function seg(containerId, key, values) {
+  const el = $(containerId);
+  if (el.dataset.built) return;
+  el.dataset.built = '1';
+  for (const v of values) {
+    const b = document.createElement('button');
+    b.textContent = LABELS[key][v] ?? v;
+    b.dataset.value = v;
+    b.addEventListener('click', () => send({ [key]: v }));
+    el.appendChild(b);
+  }
+}
+
+function buildControls() {
+  seg('mode', 'mode', options.mode);
+  seg('fanSpeed', 'fanSpeed', options.fanSpeed);
+  const sel = $('swingVert');
+  if (!sel.options.length) {
+    for (const v of options.swingVert) sel.add(new Option(LABELS.swingVert[v] ?? v, v));
+    sel.addEventListener('change', () => send({ swingVert: sel.value }));
+  }
+  const t = $('toggles');
+  if (!t.dataset.built) {
+    t.dataset.built = '1';
+    for (const { key, label } of TOGGLES) {
+      const b = document.createElement('button');
+      b.textContent = label;
+      b.dataset.key = key;
+      b.setAttribute('role', 'switch');
+      b.addEventListener('click', () => {
+        const on = b.getAttribute('aria-checked') === 'true';
+        send({ [key]: on ? 'off' : 'on' });
+      });
+      t.appendChild(b);
+    }
+  }
+}
+
+function ago(ts) {
+  if (!ts) return '';
+  const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
+  return s < 5 ? 'agora' : s < 60 ? `há ${s} s` : `há ${Math.round(s / 60)} min`;
+}
+
+function render() {
+  if (!state || !options) return;
+  buildControls();
+  const p = state.properties;
+  const online = state.connection === 'online';
+
+  $('conn').dataset.state = state.connection;
+  $('connText').textContent =
+    state.connection === 'online' ? `Online · ${ago(state.lastUpdate)}` :
+    state.connection === 'offline' ? 'Sem resposta do aparelho' : 'Conectando…';
+
+  const isOn = p.power === 'on';
+  const target = pendingTemp ?? p.temperature;
+  $('target').textContent = target ?? '--';
+  $('temp').dataset.mode = p.mode ?? '';
+  $('temp').dataset.off = String(!isOn);
+
+  const room = Number(p.currentTemperature);
+  $('room').textContent = room > 0 ? `Ambiente: ${room} °C` : 'Este modelo não informa a temperatura do ambiente';
+
+  const power = $('power');
+  power.textContent = isOn ? 'Desligar' : 'Ligar';
+  power.setAttribute('aria-pressed', String(isOn));
+
+  for (const id of ['mode', 'fanSpeed']) {
+    for (const b of $(id).children) b.setAttribute('aria-pressed', String(p[id] === b.dataset.value));
+  }
+  if (p.swingVert && document.activeElement !== $('swingVert')) $('swingVert').value = p.swingVert;
+  for (const b of $('toggles').children) {
+    const v = p[b.dataset.key];
+    b.hidden = v === undefined;
+    b.setAttribute('aria-checked', String(v === 'on'));
+  }
+
+  for (const el of document.querySelectorAll('button, select')) el.disabled = !online;
+}
+
+function nudge(delta) {
+  const cur = pendingTemp ?? Number(state?.properties.temperature ?? 24);
+  const { min, max } = options.temperature;
+  pendingTemp = Math.min(max, Math.max(min, cur + delta));
+  render();
+  clearTimeout(tempTimer);
+  tempTimer = setTimeout(async () => {
+    const value = pendingTemp;
+    await send({ temperature: value });
+    pendingTemp = null;
+    render();
+  }, 450);
+}
+
+$('up').addEventListener('click', () => nudge(1));
+$('down').addEventListener('click', () => nudge(-1));
+$('power').addEventListener('click', () => send({ power: state.properties.power === 'on' ? 'off' : 'on' }));
+
+(async () => {
+  options = await (await fetch('/api/options')).json();
+  const es = new EventSource('/api/events');
+  es.onmessage = (e) => { state = JSON.parse(e.data); render(); };
+  es.onerror = () => { $('conn').dataset.state = 'offline'; $('connText').textContent = 'Servidor local indisponível'; };
+  setInterval(render, 5000); // atualiza o "há X s"
+})();
+</script>
+</body>
+</html>

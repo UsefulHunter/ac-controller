@@ -1,0 +1,27 @@
+{
+  "name": "gree-ac-controller",
+  "version": "0.1.0",
+  "description": "Painel local para monitorar e controlar ar-condicionado Gree via UDP, sem nuvem",
+  "private": true,
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "discover": "tsx src/discover.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^5.3.0",
+    "gree-hvac-client": "^2.2.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}
