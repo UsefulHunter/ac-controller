@@ -161,8 +161,10 @@ async function send(payload) {
     const res = await fetch('/api/set', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     const body = await res.json();
     if (!body.ok) showError(body.error || 'Não foi possível enviar o comando.');
+    return Boolean(body.ok);
   } catch {
     showError('Sem conexão com o servidor local.');
+    return false;
   }
 }
 
@@ -276,9 +278,13 @@ function nudge(delta) {
   clearTimeout(tempTimer);
   tempTimer = setTimeout(async () => {
     const value = pendingTemp;
-    await send({ temperature: value });
-    pendingTemp = null;
-    render();
+    if (value === null) return; // o aparelho já confirmou esse valor
+    const ok = await send({ temperature: value });
+    // /api/set responde quando o pacote sai, antes da confirmação do aparelho.
+    // Mantém o valor pendente até o SSE confirmar (ver onmessage), senão o valor antigo pisca.
+    // Se a confirmação não vier, volta a mostrar o estado real.
+    const settle = () => { if (pendingTemp === value) { pendingTemp = null; render(); } };
+    if (ok) setTimeout(settle, 3000); else settle();
   }, 450);
 }
 
@@ -289,7 +295,11 @@ $('power').addEventListener('click', () => send({ power: state.properties.power 
 (async () => {
   options = await (await fetch('/api/options')).json();
   const es = new EventSource('/api/events');
-  es.onmessage = (e) => { state = JSON.parse(e.data); render(); };
+  es.onmessage = (e) => {
+    state = JSON.parse(e.data);
+    if (pendingTemp !== null && pendingTemp === state.properties.temperature) pendingTemp = null;
+    render();
+  };
   es.onerror = () => { $('conn').dataset.state = 'offline'; $('connText').textContent = 'Servidor local indisponível'; };
   setInterval(render, 5000); // atualiza o "há X s"
 })();
