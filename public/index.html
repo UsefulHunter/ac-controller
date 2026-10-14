@@ -78,6 +78,8 @@
   .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
   .seg button { padding: 10px 4px; font-size: .875rem; }
   .toggles { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tip { position: fixed; z-index: 10; max-width: min(260px, calc(100vw - 32px)); padding: 8px 10px; border-radius: 8px; background: var(--ink); color: var(--bg); font-size: .8125rem; line-height: 1.35; pointer-events: none; box-shadow: 0 4px 14px rgb(0 0 0 / .2); }
+  .tip[hidden] { display: none; }
   select { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; width: 100%; }
 
   .msg { min-height: 1.4em; font-size: .875rem; color: var(--bad); }
@@ -125,6 +127,7 @@
 
   <div class="msg" id="msg" role="status" aria-live="polite"></div>
 </main>
+<div class="tip" id="tip" role="tooltip" hidden></div>
 
 <script>
 const LABELS = {
@@ -137,12 +140,12 @@ const LABELS = {
   },
 };
 const TOGGLES = [
-  { key: 'turbo', label: 'Turbo' },
-  { key: 'sleep', label: 'Modo sono' },
-  { key: 'powerSave', label: 'Economia' },
-  { key: 'lights', label: 'Luz do display' },
-  { key: 'health', label: 'Saúde' },
-  { key: 'blow', label: 'X-Fan' },
+  { key: 'turbo', label: 'Turbo', tip: 'Potência máxima por alguns minutos para resfriar ou aquecer o ambiente mais rápido.' },
+  { key: 'sleep', label: 'Modo sono', tip: 'Ajusta a temperatura aos poucos durante a noite e reduz o ruído, para dormir com mais conforto e gastar menos.' },
+  { key: 'powerSave', label: 'Economia', tip: 'Limita a potência do compressor para reduzir o consumo de energia, com resfriamento mais lento.' },
+  { key: 'lights', label: 'Luz do display', tip: 'Liga ou desliga o display e as luzes da unidade interna (útil à noite).' },
+  { key: 'health', label: 'Saúde', tip: 'Ativa o ionizador, que ajuda a purificar o ar e reduzir partículas e odores.' },
+  { key: 'blow', label: 'X-Fan', tip: 'Ao desligar nos modos Frio ou Seco, mantém o ventilador girando por alguns minutos para secar a serpentina e evitar mofo e mau cheiro.' },
 ];
 const $ = (id) => document.getElementById(id);
 let state = null;
@@ -187,10 +190,12 @@ function buildControls() {
   const t = $('toggles');
   if (!t.dataset.built) {
     t.dataset.built = '1';
-    for (const { key, label } of TOGGLES) {
+    for (const { key, label, tip } of TOGGLES) {
       const b = document.createElement('button');
       b.textContent = label;
       b.dataset.key = key;
+      b.dataset.tip = tip;
+      b.setAttribute('aria-description', tip);
       b.setAttribute('role', 'switch');
       b.addEventListener('click', () => {
         const on = b.getAttribute('aria-checked') === 'true';
@@ -198,6 +203,25 @@ function buildControls() {
       });
       t.appendChild(b);
     }
+    // Tooltip único, posicionado acima do botão (ou abaixo, se faltar espaço) e preso à tela
+    const tipEl = $('tip');
+    const showTip = (b) => {
+      tipEl.textContent = b.dataset.tip;
+      tipEl.hidden = false;
+      const r = b.getBoundingClientRect();
+      const w = tipEl.offsetWidth, h = tipEl.offsetHeight;
+      const left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), innerWidth - w - 8);
+      const top = r.top - h - 8 >= 8 ? r.top - h - 8 : r.bottom + 8;
+      tipEl.style.left = `${left}px`;
+      tipEl.style.top = `${top}px`;
+    };
+    const hideTip = () => { tipEl.hidden = true; };
+    t.addEventListener('mouseover', (e) => { const b = e.target.closest('button'); if (b) showTip(b); });
+    t.addEventListener('mouseout', (e) => { if (!t.contains(e.relatedTarget)) hideTip(); });
+    t.addEventListener('focusin', (e) => { if (e.target.matches(':focus-visible')) showTip(e.target); });
+    t.addEventListener('focusout', hideTip);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideTip(); });
+    addEventListener('scroll', hideTip, { passive: true });
   }
 }
 
