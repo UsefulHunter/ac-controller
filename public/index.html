@@ -1,9 +1,10 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ar-condicionado</title>
+<link rel="icon" type="image/svg+xml" href="/icon.svg">
 <style>
   :root {
     --bg: #e9f0f1;
@@ -89,16 +90,16 @@
 <main>
   <header>
     <h1>Ar-condicionado</h1>
-    <div class="conn" id="conn" data-state="connecting"><span class="dot"></span><span id="connText">Conectando…</span></div>
+    <div class="conn" id="conn" data-state="connecting"><span class="dot"></span><span id="connText">Conectandoâ€¦</span></div>
   </header>
 
   <section class="readout" aria-label="Temperatura">
     <div class="setpoint">
-      <button class="step" id="down" aria-label="Diminuir temperatura">−</button>
-      <div class="temp" id="temp"><span class="num" id="target">--</span><span class="unit">°C</span></div>
+      <button class="step" id="down" aria-label="Diminuir temperatura">âˆ’</button>
+      <div class="temp" id="temp"><span class="num" id="target">--</span><span class="unit">Â°C</span></div>
       <button class="step" id="up" aria-label="Aumentar temperatura">+</button>
     </div>
-    <div class="room" id="room">Temperatura do ambiente indisponível</div>
+    <div class="room" id="room">Temperatura do ambiente indisponÃ­vel</div>
     <button class="power" id="power" aria-pressed="false">Ligar</button>
   </section>
 
@@ -113,8 +114,8 @@
   </fieldset>
 
   <fieldset>
-    <legend>Direção do ar (vertical)</legend>
-    <select id="swingVert" aria-label="Direção vertical do ar"></select>
+    <legend>DireÃ§Ã£o do ar (vertical)</legend>
+    <select id="swingVert" aria-label="DireÃ§Ã£o vertical do ar"></select>
   </fieldset>
 
   <fieldset>
@@ -128,9 +129,9 @@
 <script>
 const LABELS = {
   mode: { auto: 'Auto', cool: 'Frio', dry: 'Seco', fan_only: 'Ventilar', heat: 'Calor' },
-  fanSpeed: { auto: 'Auto', low: 'Baixo', mediumLow: 'M. baixo', medium: 'Médio', mediumHigh: 'M. alto', high: 'Alto' },
+  fanSpeed: { auto: 'Auto', low: 'Baixo', mediumLow: 'M. baixo', medium: 'MÃ©dio', mediumHigh: 'M. alto', high: 'Alto' },
   swingVert: {
-    default: 'Padrão', full: 'Oscilar tudo', fixedTop: 'Fixo: topo', fixedMidTop: 'Fixo: meio-alto', fixedMid: 'Fixo: meio',
+    default: 'PadrÃ£o', full: 'Oscilar tudo', fixedTop: 'Fixo: topo', fixedMidTop: 'Fixo: meio-alto', fixedMid: 'Fixo: meio',
     fixedMidBottom: 'Fixo: meio-baixo', fixedBottom: 'Fixo: baixo', swingBottom: 'Oscilar: baixo',
     swingMidBottom: 'Oscilar: meio-baixo', swingMid: 'Oscilar: meio', swingMidTop: 'Oscilar: meio-alto', swingTop: 'Oscilar: topo'
   },
@@ -140,7 +141,7 @@ const TOGGLES = [
   { key: 'sleep', label: 'Modo sono' },
   { key: 'powerSave', label: 'Economia' },
   { key: 'lights', label: 'Luz do display' },
-  { key: 'health', label: 'Saúde' },
+  { key: 'health', label: 'SaÃºde' },
   { key: 'blow', label: 'X-Fan' },
 ];
 const $ = (id) => document.getElementById(id);
@@ -156,9 +157,9 @@ async function send(payload) {
   try {
     const res = await fetch('/api/set', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     const body = await res.json();
-    if (!body.ok) showError(body.error || 'Não foi possível enviar o comando.');
+    if (!body.ok) showError(body.error || 'NÃ£o foi possÃ­vel enviar o comando.');
   } catch {
-    showError('Sem conexão com o servidor local.');
+    showError('Sem conexÃ£o com o servidor local.');
   }
 }
 
@@ -203,7 +204,7 @@ function buildControls() {
 function ago(ts) {
   if (!ts) return '';
   const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
-  return s < 5 ? 'agora' : s < 60 ? `há ${s} s` : `há ${Math.round(s / 60)} min`;
+  return s < 5 ? 'agora' : s < 60 ? `hÃ¡ ${s} s` : `hÃ¡ ${Math.round(s / 60)} min`;
 }
 
 function render() {
@@ -214,8 +215,8 @@ function render() {
 
   $('conn').dataset.state = state.connection;
   $('connText').textContent =
-    state.connection === 'online' ? `Online · ${ago(state.lastUpdate)}` :
-    state.connection === 'offline' ? 'Sem resposta do aparelho' : 'Conectando…';
+    state.connection === 'online' ? `Online Â· ${ago(state.lastUpdate)}` :
+    state.connection === 'offline' ? 'Sem resposta do aparelho' : 'Conectandoâ€¦';
 
   const isOn = p.power === 'on';
   const target = pendingTemp ?? p.temperature;
@@ -224,7 +225,7 @@ function render() {
   $('temp').dataset.off = String(!isOn);
 
   const room = Number(p.currentTemperature);
-  $('room').textContent = room > 0 ? `Ambiente: ${room} °C` : 'Este modelo não informa a temperatura do ambiente';
+  $('room').textContent = room > 0 ? `Ambiente: ${room} Â°C` : 'Este modelo nÃ£o informa a temperatura do ambiente';
 
   const power = $('power');
   power.textContent = isOn ? 'Desligar' : 'Ligar';
@@ -265,9 +266,10 @@ $('power').addEventListener('click', () => send({ power: state.properties.power 
   options = await (await fetch('/api/options')).json();
   const es = new EventSource('/api/events');
   es.onmessage = (e) => { state = JSON.parse(e.data); render(); };
-  es.onerror = () => { $('conn').dataset.state = 'offline'; $('connText').textContent = 'Servidor local indisponível'; };
-  setInterval(render, 5000); // atualiza o "há X s"
+  es.onerror = () => { $('conn').dataset.state = 'offline'; $('connText').textContent = 'Servidor local indisponÃ­vel'; };
+  setInterval(render, 5000); // atualiza o "hÃ¡ X s"
 })();
 </script>
 </body>
 </html>
+
